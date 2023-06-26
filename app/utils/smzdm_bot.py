@@ -19,7 +19,7 @@ class SmzdmBot:
         self.session.headers.update(self._headers())
 
     def _timestamp(self):
-        sleep = randint(1, 7)
+        sleep = randint(1, 5)
         time.sleep(sleep)
         timestamp = int(time.time())
         return timestamp
@@ -52,7 +52,27 @@ class SmzdmBot:
         }
         return headers
 
-    def _sign_data(self):
+    def _web_headers(self):
+        headers = {
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Connection": "keep-alive",
+            "Cookie": self.cookies,
+            "Referer": "https://m.smzdm.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36 Edg/112.0.1722.48",
+        }
+        return headers
+
+    def _sign_data(self, data):
+        sign_str = (
+            "&".join(f"{key}={value}" for key, value in sorted(data.items()) if value)
+            + f"&key={self.SIGN_KEY}"
+        )
+        sign = hashlib.md5(sign_str.encode()).hexdigest().upper()
+        data.update({"sign": sign})
+        return data
+
+    def data(self, extra_data=None):
         data = {
             "weixin": "1",
             "captcha": "",
@@ -64,17 +84,13 @@ class SmzdmBot:
         }
         if self.sk:
             data.update({"sk": self.sk})
+        if extra_data:
+            data.update(extra_data)
+        return self._sign_data(data)
 
-        sign_str = (
-            "&".join(f"{key}={value}" for key, value in sorted(data.items()) if value)
-            + f"&key={self.SIGN_KEY}"
-        )
-        sign = hashlib.md5(sign_str.encode()).hexdigest().upper()
-        data.update({"sign": sign})
-        return data
-
-    def data(self):
-        return self._sign_data()
+    def request(self, method, url, params=None, extra_data=None):
+        data = self.data(extra_data)
+        return self.session.request(method, url, params=params, data=data)
 
 
 if __name__ == "__main__":
